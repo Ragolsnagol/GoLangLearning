@@ -8,16 +8,15 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 
+	"example.com/ginapi/config"
 	"example.com/ginapi/tutorial"
 )
-
-const pgConnString = "postgres connection string here"
 
 // getAuthors responds with the list of all authors as JSON.
 func GetAuthors(c *gin.Context) {
 	ctx := context.Background()
 
-	conn, _ := pgx.Connect(ctx, pgConnString)
+	conn, _ := pgx.Connect(ctx, config.ConfigSettings.DbConnection)
 	defer conn.Close(ctx)
 
 	queries := tutorial.New(conn)
@@ -34,7 +33,7 @@ func GetAuthorByID(c *gin.Context) {
 
 	ctx := context.Background()
 
-	conn, _ := pgx.Connect(ctx, pgConnString)
+	conn, _ := pgx.Connect(ctx, config.ConfigSettings.DbConnection)
 	defer conn.Close(ctx)
 
 	queries := tutorial.New(conn)
@@ -50,7 +49,7 @@ func PostAuthor(c *gin.Context) {
 
 	ctx := context.Background()
 
-	conn, _ := pgx.Connect(ctx, pgConnString)
+	conn, _ := pgx.Connect(ctx, config.ConfigSettings.DbConnection)
 	defer conn.Close(ctx)
 
 	queries := tutorial.New(conn)

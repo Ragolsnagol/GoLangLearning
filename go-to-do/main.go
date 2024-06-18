@@ -52,6 +52,44 @@ func toggleIndex(index string) {
 	}
 }
 
+func authenticateMiddleware(c *gin.Context) {
+	tokenString, err := c.Cookie("token")
+	if err != nil {
+		fmt.Println("Token missing")
+		c.Redirect(http.StatusSeeOther, "/login")
+		c.Abort()
+		return
+	}
+
+	token, err := verifyToken(tokenString)
+	if err != nil {
+		fmt.Printf("Token verification failed: %v\\n", err)
+		c.Redirect(http.StatusSeeOther, "/login")
+		c.Abort()
+		return
+	}
+
+	fmt.Printf("Token verified successfully. Claims: %+v\\n", token.Claims)
+
+	c.Next()
+}
+
+func verifyToken(tokenString string) (*jwt.Token, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return secretkey, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !token.Valid {
+		return nil, fmt.Errorf("invalid token")
+	}
+
+	return token, nil
+}
+
 func main() {
 	router := gin.Default()
 
@@ -63,19 +101,47 @@ func main() {
 			"Todos":    todos,
 			"LoggedIn": loggedInUser != "",
 			"Username": loggedInUser,
+			"Role":     getRole(loggedInUser),
 		})
 	})
 
-	router.POST("/add", func(c *gin.Context) {
+	router.POST("/add", authenticateMiddleware, func(c *gin.Context) {
 		text := c.PostForm("todo")
 		todo := Todo{Text: text, Done: false}
 		todos = append(todos, todo)
 		c.Redirect(http.StatusSeeOther, "/")
 	})
 
-	router.POST("/toggle", func(c *gin.Context) {
+	router.POST("/toggle", authenticateMiddleware, func(c *gin.Context) {
 		index := c.PostForm("index")
 		toggleIndex(index)
+		c.Redirect(http.StatusSeeOther, "/")
+	})
+
+	router.POST("/login", func(c *gin.Context) {
+		username := c.PostForm("username")
+		password := c.PostForm("password")
+
+		// Dummy credential check
+		if (username == "employee" && password == "password") || (username == "senior" && password == "password") {
+			tokenString, err := createToken(username)
+			if err != nil {
+				c.String(http.StatusInternalServerError, "Error creating token")
+				return
+			}
+
+			loggedInUser = username
+			fmt.Printf("Token created: %s\n", tokenString)
+			c.SetCookie("token", tokenString, 3600, "/", "localhost", false, true)
+			c.Redirect(http.StatusSeeOther, "/")
+		} else {
+			c.String(http.StatusUnauthorized, "Invalid credentials")
+		}
+	})
+
+	router.GET("/logout", func(c *gin.Context) {
+		loggedInUser = ""
+		c.SetCookie("token", "", -1, "/", "localhost", false, true)
 		c.Redirect(http.StatusSeeOther, "/")
 	})
 
